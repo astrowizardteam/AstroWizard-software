@@ -7,6 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The project lives in the astrowizard_kundli/ folder of the repo.
+    defaults:
+      run:
+        working-directory: astrowizard_kundli
     steps:
       - uses: actions/checkout@v5
 
@@ -56,4 +60,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: astrowizard-kundli-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: astrowizard_kundli/build/app/outputs/flutter-apk/app-release.apk
