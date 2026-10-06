@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:sweph/sweph.dart';
 
 import 'models.dart';
@@ -19,10 +21,15 @@ class EphemerisEngine {
 
   static Future<void> init() async {
     if (_ready) return;
-    await Sweph.init(epheAssets: const [
-      'assets/ephe/sepl_18.se1',
-      'assets/ephe/semo_18.se1',
-    ]);
+    // The default folder ('ephe_files') is relative and read-only on Android,
+    // so the ephemeris files are unpacked into the app's own temp directory.
+    await Sweph.init(
+      epheAssets: const [
+        'assets/ephe/sepl_18.se1',
+        'assets/ephe/semo_18.se1',
+      ],
+      epheFilesPath: '${Directory.systemTemp.path}/ephe_files',
+    );
     Sweph.swe_set_sid_mode(SiderealMode.SE_SIDM_LAHIRI);
     _ready = true;
   }
