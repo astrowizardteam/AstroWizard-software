@@ -30,10 +30,19 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
-      # Adds the package if pubspec.yaml does not list it, then makes the icons.
+      # Writes its own icon config, so it works even if pubspec.yaml has none.
       - name: Launcher icon
         run: |
           flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: "launcher_icon"
+            ios: false
+            image_path: "assets/icon/icon.png"
+            adaptive_icon_background: "#F4EFE4"
+            adaptive_icon_foreground: "assets/icon/icon_fg.png"
+            min_sdk_android: 21
+          EOF
           dart run flutter_launcher_icons
 
       # Tests report problems but never stop the APK from being built.
