@@ -54,6 +54,25 @@ jobs:
         run: flutter test
         continue-on-error: true
 
+      # The sweph plugin is compiled against Android 31, but its androidx
+      # dependencies need 34+. This init script raises compileSdk for every module.
+      - name: Raise compileSdk for plugins
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/compile_sdk.gradle <<'EOF'
+          allprojects {
+            afterEvaluate { p ->
+              if (p.hasProperty('android')) {
+                try {
+                  p.android.compileSdk = 36
+                } catch (Throwable e) {
+                  p.android.compileSdkVersion(36)
+                }
+              }
+            }
+          }
+          EOF
+
       - name: Build APK
         run: flutter build apk --release
 
