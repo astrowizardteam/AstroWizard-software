@@ -13,9 +13,38 @@ import 'ui/input_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await EphemerisEngine.init();
+  // Show errors on screen instead of a blank white page.
+  ErrorWidget.builder = (details) => Material(
+        color: Colors.white,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(
+              'Something went wrong:\n\n${details.exceptionAsString()}\n\n${details.stack}',
+              style: const TextStyle(fontSize: 12, color: Colors.black),
+            ),
+          ),
+        ),
+      );
+  String? startupError;
+  try {
+    await EphemerisEngine.init();
+  } catch (e, st) {
+    startupError = 'Ephemeris could not start:\n\n$e\n\n$st';
+  }
   await CityDb.load();
-  runApp(const AstroWizardApp());
+  runApp(startupError == null
+      ? const AstroWizardApp()
+      : MaterialApp(
+          home: Scaffold(
+            body: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: SelectableText(startupError, style: const TextStyle(fontSize: 12)),
+              ),
+            ),
+          ),
+        ));
 }
 
 /// Quiet, flat theme: one accent colour, no elevation, thin outlines.
