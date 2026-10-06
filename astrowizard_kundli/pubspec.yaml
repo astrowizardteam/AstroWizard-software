@@ -1,13 +1,35 @@
-      - name: Launcher icon
-        run: |
-          flutter pub add --dev flutter_launcher_icons
-          cat > flutter_launcher_icons.yaml <<'EOF'
-          flutter_launcher_icons:
-            android: "launcher_icon"
-            ios: false
-            image_path: "assets/icon/icon.png"
-            adaptive_icon_background: "#F4EFE4"
-            adaptive_icon_foreground: "assets/icon/icon_fg.png"
-            min_sdk_android: 21
-          EOF
-          dart run flutter_launcher_icons
+name: astrowizard_kundli
+description: Vedic astrology (Jyotish) kundli app for Android, inspired by Parashara's Light.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sweph: ^3.0.0
+  intl: ^0.19.0
+  shared_preferences: ^2.2.3
+  share_plus: ^10.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#F4EFE4"
+  adaptive_icon_foreground: "assets/icon/icon_fg.png"
+  min_sdk_android: 21
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/ephe/
+    - assets/cities.txt
