@@ -1,3 +1,5 @@
+[![Build Android APK](https://github.com/astrowizardteam/AstroWizard-software/actions/workflows/build_apk.yml/badge.svg)](https://github.com/astrowizardteam/AstroWizard-software/actions/workflows/build_apk.yml)
+
 # AstroWizard Kundli (Android, Flutter)
 
 Vedic astrology app inspired by Parashara's Light. See `docs/ANALYSIS.md` for the
