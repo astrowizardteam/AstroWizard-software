@@ -208,8 +208,18 @@ def chara_running(mahas, forward, when, levels=5):
 
 
 # ------------------------------------------------------------------ vargas
+VARGAS = (1, 2, 3, 4, 7, 9, 10, 12, 16, 20, 24, 27, 30, 40, 45, 60)
+
+
 def varga_degree(lon, n):
     """Degree (0-30) inside the divisional sign for equal-part vargas (1, 3, 9, 10, 12)."""
+    if n == 30:
+        d = lon % 30
+        lim = [0.0, 5.0, 10.0, 18.0, 25.0, 30.0] if int(lon // 30) % 2 == 0 else [0.0, 5.0, 12.0, 20.0, 25.0, 30.0]
+        for i in range(1, 6):
+            if d < lim[i]:
+                return (d - lim[i - 1]) / (lim[i] - lim[i - 1]) * 30
+        return 30.0
     size = 30.0 / n
     return (lon % 30 % size) * n
 
@@ -224,6 +234,8 @@ def varga_sign(lon, n):
         return 4 if (odd == (d < 15)) else 3
     if n == 3:
         return (s + 4 * int(d // 10)) % 12
+    if n == 4:
+        return (s + 3 * int(d / 7.5)) % 12
     if n == 7:
         part = int(d * 7 / 30)
         return ((s if odd else (s + 6) % 12) + part) % 12
@@ -234,6 +246,22 @@ def varga_sign(lon, n):
         return ((s if odd else (s + 8) % 12) + part) % 12
     if n == 12:
         return (s + int(d / 2.5)) % 12
+    def start(mv, fx, du):
+        return mv if s % 3 == 0 else (fx if s % 3 == 1 else du)
+    if n == 16:
+        return (start(0, 4, 8) + int(d * 16 / 30)) % 12
+    if n == 20:
+        return (start(0, 8, 4) + int(d / 1.5)) % 12
+    if n == 24:
+        return ((4 if odd else 3) + int(d / 1.25)) % 12
+    if n == 27:
+        return ([0, 3, 6, 9][s % 4] + int(d * 27 / 30)) % 12
+    if n == 40:
+        return ((0 if odd else 6) + int(d / 0.75)) % 12
+    if n == 45:
+        return (start(0, 4, 8) + int(d * 45 / 30)) % 12
+    if n == 60:
+        return (s + int(d * 2)) % 12
     if n == 30:
         if odd:
             for lim, sg in ((5, 0), (10, 10), (18, 8), (25, 2), (30, 6)):
@@ -300,6 +328,34 @@ def vedic_vara(wall, lat, lon, tz):
     if st is not None and hours < st[0]:
         wd = (wd + 6) % 7
     return wd
+
+
+def upagraha_offsets(wall, lat, lon, tz):
+    """Hours (relative to birth) at which Gulika (start of Saturn's part) and Mandi
+    (middle of Saturn's part) rise. Day = sunrise..sunset, night = sunset..next sunrise;
+    each cut in 8 parts, day parts start with the weekday lord, night parts with the
+    5th lord from it (Jagannatha Hora / Parashara's Light convention)."""
+    h = wall.hour + wall.minute / 60 + wall.second / 3600
+    today = sun_times(wall.year, wall.month, wall.day, lat, lon, tz)
+    if today is None:
+        return None
+    day = False
+    if h < today[0]:
+        pv = wall - timedelta(days=1)
+        start = sun_times(pv.year, pv.month, pv.day, lat, lon, tz)[1] - 24
+        end = today[0]
+    elif h >= today[1]:
+        nx = wall + timedelta(days=1)
+        start = today[1]
+        end = sun_times(nx.year, nx.month, nx.day, lat, lon, tz)[0] + 24
+    else:
+        day = True
+        start, end = today
+    wd = vedic_vara(wall, lat, lon, tz)
+    k = (6 - wd) % 7 if day else (6 - (wd + 4)) % 7
+    ln = (end - start) / 8
+    g = start + k * ln
+    return g - h, g + ln / 2 - h
 
 
 def panchang(sun, moon, wall, lat, lon, tz):
@@ -820,11 +876,16 @@ def compute_all(wall, tz, lat, lon_geo, when):
         decl[name] = swe.calc_ut(jd, pid, FLAGS_EQ)[0][1]
     cusps, ascmc = swe.houses_ex(jd, lat, lon_geo, b"E", swe.FLG_SIDEREAL)
     asc, mc = ascmc[0], ascmc[1]
+    upa = {}
+    uo = upagraha_offsets(wall, lat, lon_geo, tz)
+    if uo:
+        for nm, off in zip(("Gulika", "Mandi"), uo):
+            upa[nm] = swe.houses_ex(jd + off / 24, lat, lon_geo, b"E", swe.FLG_SIDEREAL)[1][0]
     ayan = swe.get_ayanamsa_ut(jd)
     lagna = int(asc // 30)
 
     vargas = {}
-    for n in (1, 3, 9, 10):
+    for n in VARGAS:
         vargas["D%d" % n] = {"lagna": varga_sign(asc, n),
                              "lagnaDeg": varga_degree(asc, n),
                              "planets": {p: varga_sign(lon[p], n) for p in lon},
@@ -845,7 +906,7 @@ def compute_all(wall, tz, lat, lon_geo, when):
         "input": {"wall": wall.isoformat(), "tz": tz, "lat": lat, "lon": lon_geo,
                   "when": when.isoformat()},
         "jd": jd, "asc": asc, "mc": mc, "ayanamsa": ayan,
-        "planets": lon, "speed": speed, "decl": decl,
+        "planets": lon, "speed": speed, "decl": decl, "upagrahas": upa, "upaOffsets": list(uo) if uo else None,
         "vargas": vargas,
         "panchang": panchang(lon["Sun"], lon["Moon"], wall, lat, lon_geo, tz),
         "ashtakavarga": {"bav": bav, "sav": sav},

@@ -116,3 +116,16 @@ Validated against the worked examples of V.P. Jain and B.V. Raman:
 - Scorpio (Mars/Ketu) and Aquarius (Saturn/Rahu): lord in the sign itself → other rules; else more conjunctions, Jupiter/Mercury/dispositor support, exaltation, dual>fixed>movable, advanced degree.
 - Antardashas = parent/12, starting from the parent sign in the same direction; second cycle uses 12 − years. These two are conventions, schools differ.
 - Cross-check vs PyJHora: differences remain only where PyJHora treats Mercury in Virgo as non-exalted, uses Gemini/Sagittarius as extra node exaltation signs, and counts the lagna as a conjunct in the co-lord rule.
+
+## Shodashvarga, Vimshopaka, dasha browser (v-next)
+- 16 vargas (D1 2 3 4 7 9 10 12 16 20 24 27 30 40 45 60) follow Parashara's rules; the 11 new/changed ones were cross-checked against PyJHora on 300 random longitudes each (0 mismatches). Golden file regenerated for all 16.
+- Vimshopaka bala is the app's own implementation (weights sum to 20; dignity points 20/18/15/10/7/5 using the D1 compound relation with the varga-sign lord). Other software may use slightly different point tables.
+- Dasha browser: column per level (Maha → Prana); ▶ opens sub-periods, ◀ back, ▲▼ previous/next in the active column. Used for Vimshottari and Chara.
+- Import/export: JSON file through the Android share sheet; import via file picker; clipboard backup kept.
+- Colours live only in lib/brand.dart (astrowizard.co.in could not be fetched from the build sandbox; hex values must be supplied).
+
+## Gulika / Mandi, XML, Dasha guide
+- Gulika = ascendant at the START of Saturn's part, Mandi = ascendant at the MIDDLE of Saturn's part (Jagannatha Hora / Parashara's Light convention). Day = sunrise-sunset, night = sunset-next sunrise, 8 equal parts; day starts with the weekday lord, night with the 5th from it. Shown in D1 and all vargas as Gk / Md (not in Vimshottari, Shadbala, Ashtakavarga, Sudarshan).
+- Checked against PyJHora for day births (within ~0.6-1.8 deg, difference = sunrise formula). PyJHora is wrong for births between midnight and sunrise and after sunset (it mixes dates), so those were checked by hand: e.g. Agra 05:27 birth -> Saturn's first night part of the previous evening, Gulika = ascendant at that sunset.
+- XML: export is AstroWizard's own layout; import is tolerant (looks for name/date/time/timezone/latitude/longitude as tags or attributes). It has NOT been tested against a real Parashara's Light file.
+- Dasha guide: houses are chosen manually (lord of / sitting in); content is in lib/engine/guide_data.dart.

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:astrowizard_kundli/engine/models.dart';
+import 'package:astrowizard_kundli/engine/gulika.dart';
+import 'package:astrowizard_kundli/engine/vimshopaka.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Golden values come from tools/reference_engine.py (Swiss Ephemeris).
@@ -46,6 +48,13 @@ void main() {
           expect(run[i].start.difference(wallOf(expRun[i][1])).inMilliseconds.abs(), lessThan(2));
           expect(run[i].end.difference(wallOf(expRun[i][2])).inMilliseconds.abs(), lessThan(2));
         }
+      });
+
+      test('Gulika / Mandi rising times (hours from birth)', () {
+        final exp = g['upaOffsets'] as List<dynamic>;
+        final up = upagrahaOffsets(wall, lat, lon, tz)!;
+        expect(up.gulika, closeTo((exp[0] as num).toDouble(), 1e-6));
+        expect(up.mandi, closeTo((exp[1] as num).toDouble(), 1e-6));
       });
 
       test('Chara dasha: years, direction, maha periods, running chain', () {
@@ -263,4 +272,10 @@ void main() {
       });
     });
   }
+
+  test('Vimshopaka weights add up to 20 and totals stay within 5..20', () {
+    expect(kVimshopakaWeights.values.fold(0.0, (a, b) => a + b), 20);
+    expect(kVimshopakaWeights.keys.toSet(), kShownVargas.toSet());
+    expect(vargaDignityPoints('Sun', 4, computeRelations({for (final p in kSeven) p: 0})), 20);
+  });
 }

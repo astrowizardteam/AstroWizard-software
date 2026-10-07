@@ -25,12 +25,19 @@ const List<String> kSignLords = [
 const Map<String, String> kPlanetShort = {
   'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me',
   'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa', 'Rahu': 'Ra', 'Ketu': 'Ke',
+  'Gulika': 'Gk', 'Mandi': 'Md',
 };
 
 /// Display order used in tables.
 const List<String> kPlanetOrder = [
   'Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn', 'Rahu', 'Ketu',
 ];
+
+/// Gulika and Mandi (Saturn's sub-planets), shown in charts and tables only.
+const List<String> kUpagrahas = ['Gulika', 'Mandi'];
+
+/// Everything drawn in a chart.
+const List<String> kChartBodies = [...kPlanetOrder, ...kUpagrahas];
 
 /// The seven classical planets (no nodes) used by Ashtakavarga and Shadbala.
 const List<String> kSeven = [

@@ -3,11 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'brand.dart';
 import 'config.dart';
 import 'engine/cities.dart';
 import 'engine/ephemeris.dart';
 import 'engine/models.dart';
 import 'storage.dart';
+import 'transfer.dart';
+import 'ui/guide_screen.dart';
+import 'xml_io.dart';
 import 'ui/chart_screen.dart';
 import 'ui/input_screen.dart';
 
@@ -49,17 +53,16 @@ Future<void> main() async {
 
 /// Quiet, flat theme: one accent colour, no elevation, thin outlines.
 ThemeData _theme(Brightness brightness) {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF4A3F8F),
-    brightness: brightness,
-    dynamicSchemeVariant: DynamicSchemeVariant.neutral,
-  );
+  final scheme = brandScheme(brightness);
   return ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
     scaffoldBackgroundColor: scheme.surface,
     appBarTheme: AppBarTheme(
       backgroundColor: scheme.surface,
+      foregroundColor: scheme.onSurface,
+      titleTextStyle: TextStyle(
+          fontFamily: 'serif', fontSize: 20, fontWeight: FontWeight.w700, color: scheme.primary),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -81,6 +84,10 @@ ThemeData _theme(Brightness brightness) {
       elevation: 0,
       height: 64,
       indicatorColor: scheme.secondaryContainer,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: scheme.secondary,
+      foregroundColor: scheme.onSecondary,
     ),
     expansionTileTheme: const ExpansionTileThemeData(
       shape: Border(),
@@ -173,6 +180,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _exportFile() async {
+    if (_saved.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('No saved charts to export')));
+      return;
+    }
+    await shareJsonFile(await ChartStore.exportJson(), 'astrowizard_charts');
+  }
+
+  Future<void> _exportXml() async {
+    if (_saved.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('No saved charts to export')));
+      return;
+    }
+    await shareXmlFile(chartsToXml(_saved), 'astrowizard_charts');
+  }
+
+  Future<void> _importFile() async {
+    String msg;
+    try {
+      final n = await pickAndImportCharts();
+      if (n == null) return;
+      msg = '$n charts imported';
+      await _reload();
+    } on FormatException catch (e) {
+      msg = 'Could not import: ${e.message}';
+    } catch (_) {
+      msg = 'Could not import: not a valid chart file';
+    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Future<void> _backup() async {
     final text = await ChartStore.exportJson();
     await Clipboard.setData(ClipboardData(text: text));
@@ -241,10 +281,30 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Share.share(kShareMessage, subject: 'AstroWizard Kundali Software'),
           ),
           PopupMenuButton<String>(
-            onSelected: (v) => v == 'backup' ? _backup() : _restore(),
+            onSelected: (v) {
+              switch (v) {
+                case 'export':
+                  _exportFile();
+                case 'exportxml':
+                  _exportXml();
+                case 'import':
+                  _importFile();
+                case 'guide':
+                  Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => const GuideScreen()));
+                case 'backup':
+                  _backup();
+                default:
+                  _restore();
+              }
+            },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'backup', child: Text('Backup all charts')),
-              PopupMenuItem(value: 'restore', child: Text('Restore from backup')),
+              PopupMenuItem(value: 'export', child: Text('Export all charts (JSON)')),
+              PopupMenuItem(value: 'exportxml', child: Text('Export all charts (XML)')),
+              PopupMenuItem(value: 'import', child: Text('Import charts (JSON / XML file)')),
+              PopupMenuItem(value: 'guide', child: Text('Dasha guide')),
+              PopupMenuItem(value: 'backup', child: Text('Backup to clipboard')),
+              PopupMenuItem(value: 'restore', child: Text('Restore from pasted text')),
             ],
           ),
         ],

@@ -55,7 +55,7 @@ Map<int, List<String>> buildLabels({
   bool compact = false, // planet code and marks only (small charts)
 }) {
   final out = <int, List<String>>{};
-  for (final name in kPlanetOrder) {
+  for (final name in kChartBodies) {
     final sign = signs[name];
     if (sign == null) continue;
     final house = (sign - base) % 12 + 1;
@@ -147,9 +147,9 @@ class NorthIndianPainter extends CustomPainter {
     canvas.drawPath(d, paint);
 
     final small =
-        TextStyle(color: textColor.withValues(alpha: 0.55), fontSize: s * 0.032 * fontScale);
+        TextStyle(color: textColor.withValues(alpha: 0.55), fontSize: s * 0.040 * fontScale);
     final plan = TextStyle(
-        color: textColor, fontSize: s * 0.034 * fontScale, fontWeight: FontWeight.w600);
+        color: textColor, fontSize: s * 0.042 * fontScale, fontWeight: FontWeight.w600);
 
     for (var h = 1; h <= 12; h++) {
       final c = _centers[h - 1] * s;
@@ -158,10 +158,10 @@ class NorthIndianPainter extends CustomPainter {
       final painters = [
         for (final t in lines)
           TextPainter(
-            text: TextSpan(text: t, style: t.contains('\n') ? plan.copyWith(fontSize: s * 0.03 * fontScale) : plan),
+            text: TextSpan(text: t, style: t.contains('\n') ? plan.copyWith(fontSize: s * 0.036 * fontScale) : plan),
             textAlign: TextAlign.center,
             textDirection: TextDirection.ltr,
-          )..layout(maxWidth: s * 0.24),
+          )..layout(maxWidth: s * 0.27),
       ];
       final total = painters.fold<double>(0, (a, p) => a + p.height);
       var y = c.dy - total / 2;

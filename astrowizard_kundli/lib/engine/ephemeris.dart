@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:sweph/sweph.dart';
 
+import 'gulika.dart';
 import 'models.dart';
 
 /// All Swiss Ephemeris calls live in this one file, so the rest of the app
@@ -88,6 +89,22 @@ class EphemerisEngine {
         house: ((sign - lagnaSign) % 12) + 1, // whole-sign houses
       );
     });
+
+    // Gulika & Mandi: ascendant at the start / middle of Saturn's part of the day.
+    final up = upagrahaOffsets(birth.wall, birth.latitude, birth.longitude, birth.tzHours);
+    if (up != null) {
+      for (final e in {'Gulika': up.gulika, 'Mandi': up.mandi}.entries) {
+        final h = Sweph.swe_houses_ex(jd + e.value / 24, SwephFlag.SEFLG_SIDEREAL,
+            birth.latitude, birth.longitude, Hsys.E);
+        final l = _norm(h.ascmc[0]);
+        planets[e.key] = PlanetPosition(
+          name: e.key,
+          longitude: l,
+          speed: 0,
+          house: (((l ~/ 30) - lagnaSign) % 12) + 1,
+        );
+      }
+    }
 
     final lons = {for (final e in planets.entries) e.key: e.value.longitude};
     final vargas = {

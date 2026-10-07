@@ -3,7 +3,11 @@ import 'package:intl/intl.dart';
 
 import '../engine/ephemeris.dart';
 import '../engine/models.dart';
+import '../engine/vimshopaka.dart';
 import '../storage.dart';
+import '../transfer.dart';
+import '../xml_io.dart';
+import 'guide_screen.dart';
 import 'chart_painters.dart';
 import 'chara_tab.dart';
 import 'dasha_tab.dart';
@@ -138,8 +142,24 @@ class _ChartScreenState extends State<ChartScreen> {
               onSelected: (v) {
                 if (v == 'edit') _edit();
                 if (v == 'close') _close();
+                if (v == 'sharexml') {
+                  shareXmlFile(
+                      chartsToXml([SavedChart(_id ?? 'x', _birth)]),
+                      _birth.name.isEmpty ? 'kundli' : _birth.name);
+                }
+                if (v == 'guide') {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => GuideScreen(chart: _chart)));
+                }
+                if (v == 'share') {
+                  shareJsonFile(ChartStore.exportOne(_birth, id: _id),
+                      _birth.name.isEmpty ? 'kundli' : _birth.name);
+                }
               },
               itemBuilder: (_) => const [
+                PopupMenuItem(value: 'share', child: Text('Share this chart (JSON)')),
+                PopupMenuItem(value: 'sharexml', child: Text('Share this chart (XML)')),
+                PopupMenuItem(value: 'guide', child: Text('Dasha guide')),
                 PopupMenuItem(value: 'edit', child: Text('Edit details')),
                 PopupMenuItem(value: 'close', child: Text('Close chart')),
               ],
@@ -184,13 +204,14 @@ class _ChartScreenState extends State<ChartScreen> {
         ]);
       case 2:
         return Column(children: [
-          _segmented(const ['Shadbala', 'Bhava', 'Ashtakavarga'], _strengthView,
+          _segmented(const ['Shadbala', 'Bhava', 'Ashtaka', 'Vargas'], _strengthView,
               (i) => setState(() => _strengthView = i)),
           Expanded(
             child: switch (_strengthView) {
               0 => _shadbalaTab(context, c),
               1 => _bhavaBalaTab(context, c),
-              _ => _ashtakavargaTab(context, c),
+              2 => _ashtakavargaTab(context, c),
+              _ => _shodashvargaTab(context, c),
             },
           ),
         ]);
@@ -364,11 +385,8 @@ class _ChartScreenState extends State<ChartScreen> {
   }
 
   // ------------------------------------------------------------------ chart
-  static const Map<int, String> _chartNames = {
-    1: 'D1 Rasi',
-    3: 'D3 Drekkana',
-    9: 'D9 Navamsa',
-    10: 'D10 Dasamsa',
+  static final Map<int, String> _chartNames = {
+    ...kVargaNames,
     100: 'Transit',
     0: 'Sudarshan',
   };
@@ -428,9 +446,12 @@ class _ChartScreenState extends State<ChartScreen> {
           child: DropdownButton<int>(
             value: key,
             isDense: true,
+            isExpanded: true,
             items: [
               for (final e in _chartNames.entries)
-                if (e.key != 1) DropdownMenuItem(value: e.key, child: Text(e.value)),
+                if (e.key != 1) DropdownMenuItem(
+                    value: e.key,
+                    child: Text(e.value, overflow: TextOverflow.ellipsis)),
             ],
             onChanged: (v) {
               if (v != null) onPick(v);
@@ -450,7 +471,13 @@ class _ChartScreenState extends State<ChartScreen> {
     final needsTransit = _second == 100 || _third == 100 || _second == 0 || _third == 0;
     return ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
       Text('D1 Rasi', textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
-      _chartOf(context, c, 1, compact: false),
+      Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxWidth: (MediaQuery.of(context).size.width * 0.66).clamp(200.0, 300.0)),
+          child: _chartOf(context, c, 1, compact: false),
+        ),
+      ),
       const SizedBox(height: 4),
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _smallChart(context, c, _second, (v) => setState(() => _second = v)),
@@ -543,9 +570,12 @@ class _ChartScreenState extends State<ChartScreen> {
         const DataCell(Text('1')),
         DataCell(Text(kSigns[d9.lagnaSign])),
       ]),
-      for (final name in kPlanetOrder)
+      for (final name in kChartBodies)
         if (c.planets[name] != null)
-          DataRow(onSelectChanged: (_) => showPlanetSheet(context, c, name), cells: [
+          DataRow(
+              onSelectChanged:
+                  kUpagrahas.contains(name) ? null : (_) => showPlanetSheet(context, c, name),
+              cells: [
             DataCell(Text('$name${planetMarks(c, name)}')),
             DataCell(Text(c.planets[name]!.sign)),
             DataCell(Text(_dms(c.planets[name]!.degreeInSign))),
@@ -596,6 +626,76 @@ class _ChartScreenState extends State<ChartScreen> {
   }
 
   // ------------------------------------------------------------ ashtakavarga
+  Widget _shodashvargaTab(BuildContext context, KundliChart c) {
+    final vim = computeVimshopaka(c.vargas, c.relations);
+    final scheme = Theme.of(context).colorScheme;
+    String sign(VargaChart v, String? p) =>
+        kSignsShort[p == null ? v.lagnaSign : v.signs[p]!];
+    final table = DataTable(
+      columnSpacing: 10,
+      headingRowHeight: 40,
+      dataRowMinHeight: 34,
+      dataRowMaxHeight: 38,
+      columns: [
+        const DataColumn(label: Text('')),
+        for (final n in kShownVargas) DataColumn(label: Text('D$n')),
+      ],
+      rows: [
+        for (final p in <String?>[null, ...kChartBodies])
+          DataRow(cells: [
+            DataCell(Text(p == null ? 'Asc' : kPlanetShort[p]!,
+                style: const TextStyle(fontWeight: FontWeight.bold))),
+            for (final n in kShownVargas) DataCell(Text(sign(c.vargas[n]!, p))),
+          ]),
+      ],
+    );
+    final vimTable = DataTable(
+      columnSpacing: 14,
+      headingRowHeight: 40,
+      dataRowMinHeight: 34,
+      dataRowMaxHeight: 38,
+      columns: const [
+        DataColumn(label: Text('Planet')),
+        DataColumn(label: Text('Vimshopaka /20'), numeric: true),
+        DataColumn(label: Text('Grade')),
+      ],
+      rows: [
+        for (final p in kSeven)
+          DataRow(cells: [
+            DataCell(Text(p)),
+            DataCell(Text(vim.total[p]!.toStringAsFixed(2))),
+            DataCell(Text(Vimshopaka.grade(vim.total[p]!))),
+          ]),
+      ],
+    );
+    return ListView(padding: const EdgeInsets.all(8), children: [
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text('Shodashvarga — sign of the ascendant and each planet in the 16 divisions.',
+            style: Theme.of(context).textTheme.titleSmall),
+      ),
+      SingleChildScrollView(scrollDirection: Axis.horizontal, child: table),
+      const Divider(height: 24),
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text('Vimshopaka bala (Shodasavarga)',
+            style: Theme.of(context).textTheme.titleSmall),
+      ),
+      vimTable,
+      Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          'Weights: D1 3.5, D9 3, D16 2, D60 4, D2 / D3 / D30 1, the rest 0.5 (total 20). '
+          'Each varga scores 20 for own / exalted sign, else 18 / 15 / 10 / 7 / 5 by '
+          'adhi-mitra / mitra / sama / shatru / adhi-shatru relation with the sign lord. '
+          'Grades: ≥18 Poorna, ≥15 Atyuttama, ≥12 Uttama, ≥10 Madhyama, else Kanishtha. '
+          'This is the app\'s own implementation; schools differ in the details.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.outline),
+        ),
+      ),
+    ]);
+  }
+
   Widget _ashtakavargaTab(BuildContext context, KundliChart c) {
     final av = c.ashtakavarga;
     return _scroll2D(DataTable(

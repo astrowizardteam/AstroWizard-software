@@ -83,14 +83,19 @@ class ChartStore {
   }
 
   /// All saved charts as one JSON text (for backup).
-  static Future<String> exportJson() async {
-    final list = await load();
-    return const JsonEncoder.withIndent(' ').convert({
-      'app': 'astrowizard_kundli',
-      'version': 1,
-      'charts': [for (final s in list) _toJson(s)],
-    });
-  }
+  static Future<String> exportJson() async => encode(await load());
+
+  /// One chart (saved or not yet saved) as JSON text, for sharing.
+  static String exportOne(BirthData b, {String? id}) => encode([
+        SavedChart(id ?? 'x${DateTime.now().microsecondsSinceEpoch}', b),
+      ]);
+
+  static String encode(List<SavedChart> list) =>
+      const JsonEncoder.withIndent(' ').convert({
+        'app': 'astrowizard_kundli',
+        'version': 1,
+        'charts': [for (final s in list) _toJson(s)],
+      });
 
   /// Merges charts from a backup text: same id = overwritten, new ids are added.
   /// Returns how many charts were imported. Throws [FormatException] on bad input.
@@ -107,6 +112,11 @@ class ChartStore {
         // skip entries that are not valid charts
       }
     }
+    return importCharts(incoming);
+  }
+
+  /// Merges already-parsed charts (same id = overwrite). Returns the count.
+  static Future<int> importCharts(List<SavedChart> incoming) async {
     if (incoming.isEmpty) throw const FormatException('No valid charts found');
     final list = await load();
     for (final c in incoming) {
