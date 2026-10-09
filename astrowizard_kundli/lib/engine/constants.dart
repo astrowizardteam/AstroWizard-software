@@ -25,7 +25,7 @@ const List<String> kSignLords = [
 const Map<String, String> kPlanetShort = {
   'Sun': 'Su', 'Moon': 'Mo', 'Mars': 'Ma', 'Mercury': 'Me',
   'Jupiter': 'Ju', 'Venus': 'Ve', 'Saturn': 'Sa', 'Rahu': 'Ra', 'Ketu': 'Ke',
-  'Gulika': 'Gk', 'Mandi': 'Md',
+  'Gulika': 'Gk', 'Mandi': 'Md', 'Asc': 'As',
 };
 
 /// Display order used in tables.

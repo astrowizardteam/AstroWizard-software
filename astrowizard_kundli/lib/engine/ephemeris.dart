@@ -170,7 +170,10 @@ class EphemerisEngine {
 
   /// Sidereal longitudes (and retrograde flags) of all nine grahas at the
   /// given real UTC instant, for transit (gochara) displays.
-  static Map<String, PlanetPosition> transit(DateTime utc, int lagnaSign) {
+  /// Transit positions at [utc]. With [lat]/[lon] (the place where the person
+  /// is now) the transit ascendant is included as 'Asc'.
+  static Map<String, PlanetPosition> transit(DateTime utc, int lagnaSign,
+      {double? lat, double? lon}) {
     final jd = Sweph.swe_julday(utc.year, utc.month, utc.day,
         utc.hour + utc.minute / 60.0 + utc.second / 3600.0, CalendarType.SE_GREG_CAL);
     final out = <String, PlanetPosition>{};
@@ -183,6 +186,15 @@ class EphemerisEngine {
           speed: c.speedInLongitude,
           house: ((lon ~/ 30 - lagnaSign) % 12) + 1);
     });
+    if (lat != null && lon != null) {
+      final h = Sweph.swe_houses_ex(jd, SwephFlag.SEFLG_SIDEREAL, lat, lon, Hsys.E);
+      final a = _norm(h.ascmc[0]);
+      out['Asc'] = PlanetPosition(
+          name: 'Asc',
+          longitude: a,
+          speed: 0,
+          house: ((a ~/ 30 - lagnaSign) % 12) + 1);
+    }
     final r = out['Rahu']!;
     final kl = _norm(r.longitude + 180.0);
     out['Ketu'] = PlanetPosition(

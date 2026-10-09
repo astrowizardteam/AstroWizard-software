@@ -5,6 +5,7 @@ import '../engine/ephemeris.dart';
 import '../engine/models.dart';
 import '../engine/vimshopaka.dart';
 import '../storage.dart';
+import '../location.dart';
 import '../transfer.dart';
 import '../xml_io.dart';
 import 'guide_screen.dart';
@@ -42,6 +43,8 @@ class _ChartScreenState extends State<ChartScreen> {
   bool _showNak = false;
   bool _showLord = false;
   DateTime _transit = DateTime.now().toUtc();
+  ({double lat, double lon})? _here; // device location for the transit ascendant
+  bool _locating = false;
 
   BirthData get _birth => _orig.copyWith(wall: _orig.wall.add(_delta));
 
@@ -263,6 +266,22 @@ class _ChartScreenState extends State<ChartScreen> {
     }
   }
 
+  Future<void> _useMyLocation() async {
+    setState(() => _locating = true);
+    String? err;
+    try {
+      final p = await deviceLocation();
+      if (mounted) setState(() => _here = p);
+    } catch (e) {
+      err = e.toString().replaceFirst('Exception: ', '');
+    }
+    if (!mounted) return;
+    setState(() => _locating = false);
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    }
+  }
+
   /// Date and time of the transit, with quick steps (year / month / day).
   Widget _transitBar(BuildContext context) {
     final t = _transit.toLocal();
@@ -288,7 +307,28 @@ class _ChartScreenState extends State<ChartScreen> {
           onPressed: () => setState(() => _transit = DateTime.now().toUtc()),
           child: const Text('Now'),
         ),
+        ActionChip(
+          avatar: _locating
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(_here == null ? Icons.my_location : Icons.location_on, size: 18),
+          label: Text(_here == null
+              ? 'Use my location'
+              : 'At ${_here!.lat.toStringAsFixed(2)}, ${_here!.lon.toStringAsFixed(2)}'),
+          onPressed: _locating ? null : _useMyLocation,
+        ),
+        if (_here != null)
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: 'Remove location (no transit ascendant)',
+            onPressed: () => setState(() => _here = null),
+          ),
       ]),
+      if (_here != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text('As = ascendant at your location at the transit time.',
+              style: Theme.of(context).textTheme.bodySmall),
+        ),
       Wrap(alignment: WrapAlignment.center, children: [
         step('−1y', () => _stepTransit(years: -1)),
         step('−1m', () => _stepTransit(months: -1)),
@@ -401,7 +441,7 @@ class _ChartScreenState extends State<ChartScreen> {
     final base = (chartLagna + _rot) % 12;
     final ascDeg = varga?.lagnaDegree ?? c.lagnaDegree;
     final opts = LabelOptions(nakshatra: _showNak, lord: _showLord);
-    final tr = isTr ? EphemerisEngine.transit(_transit, c.lagnaSign) : null;
+    final tr = isTr ? EphemerisEngine.transit(_transit, c.lagnaSign, lat: _here?.lat, lon: _here?.lon) : null;
     return AspectRatio(
       aspectRatio: 1,
       child: CustomPaint(

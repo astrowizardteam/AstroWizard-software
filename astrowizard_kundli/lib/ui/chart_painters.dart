@@ -55,7 +55,7 @@ Map<int, List<String>> buildLabels({
   bool compact = false, // planet code and marks only (small charts)
 }) {
   final out = <int, List<String>>{};
-  for (final name in kChartBodies) {
+  for (final name in [...kChartBodies, 'Asc']) {
     final sign = signs[name];
     if (sign == null) continue;
     final house = (sign - base) % 12 + 1;

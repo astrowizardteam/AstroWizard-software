@@ -26,10 +26,17 @@ jobs:
 
       # The android/ runner is generated here, so the repo only holds our code.
       - name: Generate Android runner
-        run: flutter create --platforms=android --project-name astrowizard_kundli --org in.co.astrowizard .
+        run: |
+          flutter create --platforms=android --project-name astrowizard_kundli --org in.co.astrowizard .
+          rm -f test/widget_test.dart
 
       - name: App name
         run: sed -i 's/android:label="[^"]*"/android:label="AstroWizard Kundali Software"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Location permission
+        run: |
+          sed -i 's#<application#<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+          grep -n "LOCATION" android/app/src/main/AndroidManifest.xml
 
       - name: Get packages
         run: flutter pub get
