@@ -120,7 +120,7 @@ class _AccessGateState extends State<AccessGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _check();
+    _check(sync: true);
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _check());
   }
 
@@ -133,17 +133,28 @@ class _AccessGateState extends State<AccessGate> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _check();
+    if (state == AppLifecycleState.resumed) _check(sync: true);
   }
 
-  Future<void> _check() async {
-    final a = await Access.isActive();
+  bool _synced = false;
+
+  Future<void> _check({bool sync = false}) async {
+    var a = await Access.isActive();
+    // Ask the server when locked (also restores access after "clear data") and,
+    // once per app start, when active (picks up an extended plan).
+    if (sync && (!a || !_synced)) {
+      await Access.sync();
+      _synced = true;
+      a = await Access.isActive();
+    }
     if (mounted && a != _active) setState(() => _active = a);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_active == null) return const Scaffold(body: SizedBox.shrink());
+    if (_active == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return _active! ? const HomeScreen() : RechargeScreen(onActivated: _check);
   }
 }

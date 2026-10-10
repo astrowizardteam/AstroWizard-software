@@ -17,7 +17,7 @@ class RechargeScreen extends StatefulWidget {
   State<RechargeScreen> createState() => _RechargeScreenState();
 }
 
-class _RechargeScreenState extends State<RechargeScreen> {
+class _RechargeScreenState extends State<RechargeScreen> with WidgetsBindingObserver {
   final _code = TextEditingController();
   DateTime? _expiry;
   String? _message;
@@ -26,11 +26,20 @@ class _RechargeScreenState extends State<RechargeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  bool _waiting = false; // payment page was opened; check when the user returns
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _waiting) _checkStatus();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _code.dispose();
     super.dispose();
   }
@@ -41,9 +50,46 @@ class _RechargeScreenState extends State<RechargeScreen> {
   }
 
   Future<void> _openRecharge() async {
-    final ok = await launchUrl(Uri.parse(kRechargeUrl), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      setState(() => _message = 'Could not open the browser. Visit $kRechargeUrl');
+    final dev = await Access.deviceId();
+    final session = await Access.newSession();
+    final url = Uri.parse(kRechargeUrl).replace(queryParameters: {
+      'device': dev,
+      'session': session,
+    });
+    final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+    setState(() {
+      _waiting = ok;
+      _message = ok ? null : 'Could not open the browser. Visit $kRechargeUrl';
+    });
+  }
+
+  /// Asks the server whether this phone has a paid plan (also restores access
+  /// after the app data was cleared).
+  Future<void> _checkStatus() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    final r = await Access.sync();
+    if (!mounted) return;
+    await _load();
+    setState(() {
+      _busy = false;
+      _message = switch (r) {
+        SyncResult.active => 'Recharge found. Thank you!',
+        SyncResult.none => 'No active recharge found for this phone yet. '
+            'If you just paid, wait a minute and check again.',
+        SyncResult.offline => 'No internet. Connect and check again.',
+        SyncResult.badResponse => 'Could not read the server reply. Try again later.',
+        SyncResult.noSecret => 'This build cannot check recharges. Please install the official app.',
+      };
+    });
+    if (r == SyncResult.active) {
+      _waiting = false;
+      widget.onActivated?.call();
+      if (widget.embedded && mounted) Navigator.pop(context);
     }
   }
 
@@ -109,10 +155,16 @@ class _RechargeScreenState extends State<RechargeScreen> {
             onPressed: _openRecharge,
           ),
           const SizedBox(height: 6),
-          Text('You will get an activation code after the payment.',
+          Text('Pay on the website, then come back here. Your plan starts automatically.',
               textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: Text(_busy ? 'Checking...' : 'I have recharged: check status'),
+            onPressed: _busy ? null : _checkStatus,
+          ),
           const Divider(height: 40),
-          Text('Already have a code?', style: theme.textTheme.titleSmall),
+          Text('Have an activation code instead?', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           TextField(
             controller: _code,

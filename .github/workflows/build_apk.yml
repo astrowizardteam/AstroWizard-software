@@ -35,8 +35,8 @@ jobs:
 
       - name: Location permission
         run: |
-          sed -i 's#<application#<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <application#' android/app/src/main/AndroidManifest.xml
-          grep -n "LOCATION" android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+          grep -n "INTERNET\|LOCATION" android/app/src/main/AndroidManifest.xml
 
       - name: Get packages
         run: flutter pub get

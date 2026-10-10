@@ -290,4 +290,8 @@ void main() {
     expect(parseActivationCode('00F06-85BSQ-QZCRG-QPC40', 'other'), isNull);
     expect(parseActivationCode('00F06-85BSQ-QZCRG-QPC40', ''), isNull);
   });
+
+  test('Server status signature matches the WordPress plugin', () {
+    expect(statusSignature('test-secret-123', 'abc123def456', 1900000000), '991d157ab4915b28');
+  });
 }

@@ -134,3 +134,9 @@ Validated against the worked examples of V.P. Jain and B.V. Raman:
 - App is locked until a code is activated (no trial). Recharge button opens https://www.astrowizard.co.in/apprecharge; the user pays via Razorpay and receives a code; code adds N days (extends an active plan).
 - Codes are HMAC-signed (tools/make_code.py, tools/wordpress_activation_code.php; PHP and Python verified to give identical codes). Secret = GitHub secret AW_SECRET, injected at build (--dart-define), never in the repo.
 - Limits (offline design): a code can be activated within 60 days of issue; reuse is blocked per phone but a code can be shared with other phones; clearing app data resets state. Phone clock cannot be wound back to gain time. A rooted phone / modified APK can bypass any offline lock.
+
+### Server recharge (replaces the code-only flow; codes stay as a fallback)
+- Recharge button creates a random session string and opens `apprecharge?device=<Android ID>&session=<random>`. The WordPress plugin (tools/wordpress/astrowizard-app-recharge.php) creates a Razorpay order with notes {device, session, plan}; the signed Razorpay webhook extends the validity stored against the device.
+- App asks `GET /status?device=` (answer signed with HMAC, secret = AW_SECRET). Android ID survives clear-data and reinstall (resets only on factory reset), so paid validity is restored after clearing data, if online.
+- Needs internet at: first recharge, after clear-data, and to pick up an extension. Between those the cached, signed expiry works offline.
+- Prices in the plugin are placeholders.

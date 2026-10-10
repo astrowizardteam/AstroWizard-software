@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:android_id/android_id.dart';
 import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config.dart';
@@ -77,6 +81,16 @@ ActivationCode? parseActivationCode(String input, String secret) {
 
 enum ActivateResult { ok, invalid, used, tooOld, noSecret }
 
+/// Outcome of asking the recharge server about this phone.
+enum SyncResult { active, none, offline, badResponse, noSecret }
+
+/// Signature the server puts on its answer: first 16 hex chars of
+/// HMAC-SHA256(secret, "<device>:<expiry unix seconds>").
+String statusSignature(String secret, String device, int expSeconds) =>
+    _hex(_mac(secret, utf8.encode('$device:$expSeconds'))).substring(0, 16);
+
+String _hex(List<int> b) => b.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+
 /// Paid-access state, kept on the device. Values are signed so they cannot be
 /// edited by hand, and the clock can't be wound back to gain time.
 class Access {
@@ -84,9 +98,69 @@ class Access {
   static const _kSeen = 'aw_access_seen';
   static const _kUsed = 'aw_access_used';
 
-  static String _sign(String label, int ms) {
-    final m = _mac(kActivationSecret, utf8.encode('$label:$ms')).sublist(0, 8);
-    return Uint8List.fromList(m).map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+  static String _sign(String label, int ms) =>
+      _hex(Uint8List.fromList(_mac(kActivationSecret, utf8.encode('$label:$ms')).sublist(0, 8)));
+
+  static const _kDev = 'aw_device_fallback';
+  static const _kSession = 'aw_recharge_session';
+
+  /// Id that survives "clear data" and reinstalls (Android ID). The server keeps
+  /// the paid validity against it, so access can be restored after clearing data.
+  static Future<String> deviceId() async {
+    try {
+      final id = await const AndroidId().getId();
+      if (id != null && id.isNotEmpty) return id;
+    } catch (_) {}
+    final p = await SharedPreferences.getInstance();
+    var d = p.getString(_kDev);
+    if (d == null) {
+      final r = Random.secure();
+      d = 'x${List.generate(15, (_) => r.nextInt(16).toRadixString(16)).join()}';
+      await p.setString(_kDev, d);
+    }
+    return d;
+  }
+
+  /// A fresh random string for one recharge attempt; it is sent to the recharge
+  /// page together with the device id so the payment can be matched to this phone.
+  static Future<String> newSession() async {
+    final r = Random.secure();
+    const chars = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
+    final s = List.generate(16, (_) => chars[r.nextInt(chars.length)]).join();
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kSession, s);
+    return s;
+  }
+
+  /// Asks the server for this phone's paid validity and stores it (signed).
+  static Future<SyncResult> sync() async {
+    if (kActivationSecret.isEmpty) return SyncResult.noSecret;
+    final dev = await deviceId();
+    final p = await SharedPreferences.getInstance();
+    try {
+      final res = await http
+          .get(Uri.parse('$kApiBase/status?device=${Uri.encodeQueryComponent(dev)}'))
+          .timeout(const Duration(seconds: 12));
+      if (res.statusCode != 200) return SyncResult.badResponse;
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      final exp = (j['exp'] as num).toInt();
+      if (j['sig'] != statusSignature(kActivationSecret, dev, exp)) {
+        return SyncResult.badResponse;
+      }
+      if (exp <= 0) return SyncResult.none;
+      final ms = exp * 1000;
+      final cur = _read(p, _kExp, 'exp') ?? 0;
+      await _write(p, _kExp, 'exp', ms > cur ? ms : cur);
+      final now = _now(p);
+      await _write(p, _kSeen, 'seen', now.millisecondsSinceEpoch);
+      return ms > now.millisecondsSinceEpoch ? SyncResult.active : SyncResult.none;
+    } on TimeoutException {
+      return SyncResult.offline;
+    } on FormatException {
+      return SyncResult.badResponse;
+    } catch (_) {
+      return SyncResult.offline;
+    }
   }
 
   static int? _read(SharedPreferences p, String key, String label) {

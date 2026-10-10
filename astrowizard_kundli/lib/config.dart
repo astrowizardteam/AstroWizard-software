@@ -12,3 +12,6 @@ const String kRechargeUrl = 'https://www.astrowizard.co.in/apprecharge';
 /// Secret used to check activation codes. It is NOT stored in the repository:
 /// the GitHub workflow passes it at build time (--dart-define=AW_SECRET=...).
 const String kActivationSecret = String.fromEnvironment('AW_SECRET');
+
+/// Recharge server (WordPress plugin tools/wordpress/astrowizard-app-recharge.php).
+const String kApiBase = 'https://www.astrowizard.co.in/wp-json/astrowizard/v1';
