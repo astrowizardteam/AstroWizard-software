@@ -45,6 +45,7 @@ class _ChartScreenState extends State<ChartScreen> {
   DateTime _transit = DateTime.now().toUtc();
   ({double lat, double lon})? _here; // device location for the transit ascendant
   bool _locating = false;
+  bool _trFromHere = false; // draw the transit chart from the transit lagna
 
   BirthData get _birth => _orig.copyWith(wall: _orig.wall.add(_delta));
 
@@ -52,6 +53,10 @@ class _ChartScreenState extends State<ChartScreen> {
   void initState() {
     super.initState();
     if (widget.savedId != null) _savedBirth = widget.birth;
+    // The transit chart needs the place where the person is: ask once on open.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _here == null) _useMyLocation(quiet: true);
+    });
   }
 
   bool get _dirty => _savedBirth == null || _savedBirth!.wall != _birth.wall ||
@@ -266,7 +271,7 @@ class _ChartScreenState extends State<ChartScreen> {
     }
   }
 
-  Future<void> _useMyLocation() async {
+  Future<void> _useMyLocation({bool quiet = false}) async {
     setState(() => _locating = true);
     String? err;
     try {
@@ -277,9 +282,14 @@ class _ChartScreenState extends State<ChartScreen> {
     }
     if (!mounted) return;
     setState(() => _locating = false);
-    if (err != null) {
+    if (err != null && !quiet) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     }
+  }
+
+  String _transitLagnaText() {
+    final a = EphemerisEngine.transit(_transit, 0, lat: _here!.lat, lon: _here!.lon)['Asc'];
+    return a == null ? '' : 'Transit lagna: ${a.sign} ${_dms(a.degreeInSign)}';
   }
 
   /// Date and time of the transit, with quick steps (year / month / day).
@@ -324,11 +334,18 @@ class _ChartScreenState extends State<ChartScreen> {
           ),
       ]),
       if (_here != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Text('As = ascendant at your location at the transit time.',
-              style: Theme.of(context).textTheme.bodySmall),
-        ),
+        Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8, children: [
+          FilterChip(
+            label: const Text('Draw from transit lagna'),
+            selected: _trFromHere,
+            onSelected: (v) => setState(() => _trFromHere = v),
+          ),
+          Text(
+            _transitLagnaText(),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ]),
       Wrap(alignment: WrapAlignment.center, children: [
         step('−1y', () => _stepTransit(years: -1)),
         step('−1m', () => _stepTransit(months: -1)),
@@ -437,11 +454,17 @@ class _ChartScreenState extends State<ChartScreen> {
     if (key == 0) return SudarshanView(chart: c, instant: _transit, rot: _rot);
     final isTr = key == 100;
     final varga = isTr ? null : c.vargas[key]!;
-    final chartLagna = varga?.lagnaSign ?? c.lagnaSign;
+    final tr = isTr
+        ? EphemerisEngine.transit(_transit, c.lagnaSign, lat: _here?.lat, lon: _here?.lon)
+        : null;
+    final trAsc = tr?['Asc'];
+    final fromTransitLagna = isTr && _trFromHere && trAsc != null;
+    final chartLagna = fromTransitLagna ? trAsc!.signIndex : (varga?.lagnaSign ?? c.lagnaSign);
     final base = (chartLagna + _rot) % 12;
-    final ascDeg = varga?.lagnaDegree ?? c.lagnaDegree;
+    final ascDeg =
+        fromTransitLagna ? trAsc!.degreeInSign : (varga?.lagnaDegree ?? c.lagnaDegree);
     final opts = LabelOptions(nakshatra: _showNak, lord: _showLord);
-    final tr = isTr ? EphemerisEngine.transit(_transit, c.lagnaSign, lat: _here?.lat, lon: _here?.lon) : null;
+    if (fromTransitLagna) tr!.remove('Asc'); // already drawn as the chart's Asc
     return AspectRatio(
       aspectRatio: 1,
       child: CustomPaint(
