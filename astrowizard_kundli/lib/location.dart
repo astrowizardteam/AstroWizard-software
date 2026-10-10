@@ -28,15 +28,19 @@ Future<({double lat, double lon})> deviceLocation() async {
     final last = await Geolocator.getLastKnownPosition();
     if (last != null) return (lat: last.latitude, lon: last.longitude);
   } catch (_) {}
-  try {
-    final p = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.low, timeLimit: Duration(seconds: 30)),
-    );
-    return (lat: p.latitude, lon: p.longitude);
-  } on TimeoutException {
-    throw Exception('Could not get a location fix. Try again near a window or with mobile data on');
-  } catch (_) {
-    throw Exception('Could not read the location');
+  // Network-based fix first (quick, needs mobile data / WiFi), then the GPS
+  // itself, which works without any internet (open sky or near a window).
+  for (final (acc, secs) in const [(LocationAccuracy.low, 10), (LocationAccuracy.best, 45)]) {
+    try {
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(accuracy: acc, timeLimit: Duration(seconds: secs)),
+      );
+      return (lat: p.latitude, lon: p.longitude);
+    } on TimeoutException {
+      continue;
+    } catch (_) {
+      continue;
+    }
   }
+  throw Exception('Could not get a GPS fix. Go near a window / outdoors, or tap "Choose city"');
 }

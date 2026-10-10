@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../engine/cities.dart';
 import '../engine/ephemeris.dart';
 import '../engine/models.dart';
 import '../engine/vimshopaka.dart';
@@ -45,6 +46,7 @@ class _ChartScreenState extends State<ChartScreen> {
   DateTime _transit = DateTime.now().toUtc();
   ({double lat, double lon})? _here; // device location for the transit ascendant
   bool _locating = false;
+  String? _hereName; // city chosen by hand (null = GPS)
   bool _trFromHere = false; // draw the transit chart from the transit lagna
 
   BirthData get _birth => _orig.copyWith(wall: _orig.wall.add(_delta));
@@ -276,7 +278,12 @@ class _ChartScreenState extends State<ChartScreen> {
     String? err;
     try {
       final p = await deviceLocation();
-      if (mounted) setState(() => _here = p);
+      if (mounted) {
+        setState(() {
+          _here = p;
+          _hereName = null;
+        });
+      }
     } catch (e) {
       err = e.toString().replaceFirst('Exception: ', '');
     }
@@ -284,6 +291,46 @@ class _ChartScreenState extends State<ChartScreen> {
     setState(() => _locating = false);
     if (err != null && !quiet) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    }
+  }
+
+  /// Offline fallback: pick the place from the built-in atlas.
+  Future<void> _pickCity() async {
+    final city = await showDialog<City>(
+      context: context,
+      builder: (ctx) {
+        var results = CityDb.search('', limit: 15);
+        return StatefulBuilder(
+          builder: (ctx, setD) => AlertDialog(
+            title: const Text('Where are you now?'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 360,
+              child: Column(children: [
+                TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(hintText: 'Search city', prefixIcon: Icon(Icons.search)),
+                  onChanged: (v) => setD(() => results = CityDb.search(v, limit: 15)),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView(children: [
+                    for (final c in results)
+                      ListTile(dense: true, title: Text(c.name), onTap: () => Navigator.pop(ctx, c)),
+                  ]),
+                ),
+              ]),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel'))],
+          ),
+        );
+      },
+    );
+    if (city != null && mounted) {
+      setState(() {
+        _here = (lat: city.lat, lon: city.lon);
+        _hereName = city.name;
+      });
     }
   }
 
@@ -323,8 +370,13 @@ class _ChartScreenState extends State<ChartScreen> {
               : Icon(_here == null ? Icons.my_location : Icons.location_on, size: 18),
           label: Text(_here == null
               ? 'Use my location'
-              : 'At ${_here!.lat.toStringAsFixed(2)}, ${_here!.lon.toStringAsFixed(2)}'),
+              : _hereName ?? 'At ${_here!.lat.toStringAsFixed(2)}, ${_here!.lon.toStringAsFixed(2)}'),
           onPressed: _locating ? null : _useMyLocation,
+        ),
+        ActionChip(
+          avatar: const Icon(Icons.location_city, size: 18),
+          label: const Text('Choose city'),
+          onPressed: _pickCity,
         ),
         if (_here != null)
           IconButton(
