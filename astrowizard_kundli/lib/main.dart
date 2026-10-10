@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +12,9 @@ import 'engine/ephemeris.dart';
 import 'engine/models.dart';
 import 'storage.dart';
 import 'transfer.dart';
+import 'access.dart';
 import 'ui/guide_screen.dart';
+import 'ui/recharge_screen.dart';
 import 'xml_io.dart';
 import 'ui/chart_screen.dart';
 import 'ui/input_screen.dart';
@@ -100,6 +104,50 @@ ThemeData _theme(Brightness brightness) {
   );
 }
 
+/// Lets the app open only while the paid access is active (checked offline).
+class AccessGate extends StatefulWidget {
+  const AccessGate({super.key});
+
+  @override
+  State<AccessGate> createState() => _AccessGateState();
+}
+
+class _AccessGateState extends State<AccessGate> with WidgetsBindingObserver {
+  bool? _active;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) => _check());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  Future<void> _check() async {
+    final a = await Access.isActive();
+    if (mounted && a != _active) setState(() => _active = a);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_active == null) return const Scaffold(body: SizedBox.shrink());
+    return _active! ? const HomeScreen() : RechargeScreen(onActivated: _check);
+  }
+}
+
 class AstroWizardApp extends StatelessWidget {
   const AstroWizardApp({super.key});
 
@@ -110,7 +158,7 @@ class AstroWizardApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
-      home: const HomeScreen(),
+      home: const AccessGate(),
     );
   }
 }
@@ -289,6 +337,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   _exportXml();
                 case 'import':
                   _importFile();
+                case 'recharge':
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RechargeScreen(embedded: true)));
                 case 'guide':
                   Navigator.push(
                       context, MaterialPageRoute(builder: (_) => const GuideScreen()));
@@ -303,6 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
               PopupMenuItem(value: 'exportxml', child: Text('Export all charts (XML)')),
               PopupMenuItem(value: 'import', child: Text('Import charts (JSON / XML file)')),
               PopupMenuItem(value: 'guide', child: Text('Dasha guide')),
+              PopupMenuItem(value: 'recharge', child: Text('Recharge / validity')),
               PopupMenuItem(value: 'backup', child: Text('Backup to clipboard')),
               PopupMenuItem(value: 'restore', child: Text('Restore from pasted text')),
             ],

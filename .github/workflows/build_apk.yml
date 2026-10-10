@@ -81,7 +81,9 @@ jobs:
           EOF
 
       - name: Build APK
-        run: flutter build apk --release
+        env:
+          AW_SECRET: ${{ secrets.AW_SECRET }}
+        run: flutter build apk --release --dart-define=AW_SECRET="$AW_SECRET"
 
       - uses: actions/upload-artifact@v4
         with:

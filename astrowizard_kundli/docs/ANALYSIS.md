@@ -129,3 +129,8 @@ Validated against the worked examples of V.P. Jain and B.V. Raman:
 - Checked against PyJHora for day births (within ~0.6-1.8 deg, difference = sunrise formula). PyJHora is wrong for births between midnight and sunrise and after sunset (it mixes dates), so those were checked by hand: e.g. Agra 05:27 birth -> Saturn's first night part of the previous evening, Gulika = ascendant at that sunset.
 - XML: export is AstroWizard's own layout; import is tolerant (looks for name/date/time/timezone/latitude/longitude as tags or attributes). It has NOT been tested against a real Parashara's Light file.
 - Dasha guide: houses are chosen manually (lord of / sitting in); content is in lib/engine/guide_data.dart.
+
+## Recharge / activation codes
+- App is locked until a code is activated (no trial). Recharge button opens https://www.astrowizard.co.in/apprecharge; the user pays via Razorpay and receives a code; code adds N days (extends an active plan).
+- Codes are HMAC-signed (tools/make_code.py, tools/wordpress_activation_code.php; PHP and Python verified to give identical codes). Secret = GitHub secret AW_SECRET, injected at build (--dart-define), never in the repo.
+- Limits (offline design): a code can be activated within 60 days of issue; reuse is blocked per phone but a code can be shared with other phones; clearing app data resets state. Phone clock cannot be wound back to gain time. A rooted phone / modified APK can bypass any offline lock.

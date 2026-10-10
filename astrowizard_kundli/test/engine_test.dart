@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:astrowizard_kundli/engine/models.dart';
+import 'package:astrowizard_kundli/access.dart';
 import 'package:astrowizard_kundli/engine/gulika.dart';
 import 'package:astrowizard_kundli/engine/vimshopaka.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -277,5 +278,16 @@ void main() {
     expect(kVimshopakaWeights.values.fold(0.0, (a, b) => a + b), 20);
     expect(kVimshopakaWeights.keys.toSet(), kShownVargas.toSet());
     expect(vargaDignityPoints('Sun', 4, computeRelations({for (final p in kSeven) p: 0})), 20);
+  });
+
+  test('Activation codes match the Python / WordPress issuer', () {
+    const secret = 'test-secret-123';
+    expect(makeActivationCode(secret, 30, 800, 0xABCDEF), '00F06-85BSQ-QZCRG-QPC40');
+    expect(makeActivationCode(secret, 365, 801, 1), '05PG6-88000-0GK3E-V5M50');
+    final c = parseActivationCode('00f06 85bsq qzcrg qpc40', secret)!;
+    expect([c.days, c.issueDay, c.id], [30, 800, 0xABCDEF]);
+    expect(parseActivationCode('00F06-85BSQ-QZCRG-QPC41', secret), isNull);
+    expect(parseActivationCode('00F06-85BSQ-QZCRG-QPC40', 'other'), isNull);
+    expect(parseActivationCode('00F06-85BSQ-QZCRG-QPC40', ''), isNull);
   });
 }
