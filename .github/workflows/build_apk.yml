@@ -89,3 +89,70 @@ jobs:
         with:
           name: astrowizard-kundli-apk
           path: astrowizard_kundli/build/app/outputs/flutter-apk/app-release.apk
+
+  # Windows 10/11 (64-bit) desktop build. The payment wall is switched OFF here.
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: astrowizard_kundli
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Windows runner
+        run: |
+          flutter create --platforms=windows --project-name astrowizard_kundli --org in.co.astrowizard .
+          rm -f test/widget_test.dart
+          sed -i 's/L"astrowizard_kundli"/L"AstroWizard Kundali Software"/' windows/runner/main.cpp
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Windows icon
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: false
+            ios: false
+            image_path: "assets/icon/icon.png"
+            windows:
+              generate: true
+              image_path: "assets/icon/icon.png"
+              icon_size: 256
+          EOF
+          dart run flutter_launcher_icons
+        continue-on-error: true
+
+      - name: Build Windows (payment wall off)
+        run: flutter build windows --release --dart-define=PAYWALL=off
+
+      # App-local copy of the Visual C++ runtime, so it also starts on PCs without it.
+      - name: Add VC++ runtime DLLs
+        run: |
+          for f in msvcp140 vcruntime140 vcruntime140_1; do
+            cp "/c/Windows/System32/$f.dll" build/windows/x64/runner/Release/ || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astrowizard-kundli-windows-portable
+          path: astrowizard_kundli/build/windows/x64/runner/Release
+
+      - name: Build installer (single Setup.exe)
+        run: |
+          choco install innosetup -y --no-progress
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" tools/installer.iss
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astrowizard-kundli-windows-installer
+          path: astrowizard_kundli/installer_out/AstroWizardKundaliSetup.exe
+          if-no-files-found: warn

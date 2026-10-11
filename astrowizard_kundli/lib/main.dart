@@ -120,8 +120,10 @@ class _AccessGateState extends State<AccessGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _check(sync: true);
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) => _check());
+    if (kPaywall) {
+      _check(sync: true);
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) => _check());
+    }
   }
 
   @override
@@ -152,6 +154,7 @@ class _AccessGateState extends State<AccessGate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (!kPaywall) return const HomeScreen();
     if (_active == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -361,12 +364,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   _restore();
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'export', child: Text('Export all charts (JSON)')),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'export', child: Text('Export all charts (JSON)')),
               PopupMenuItem(value: 'exportxml', child: Text('Export all charts (XML)')),
               PopupMenuItem(value: 'import', child: Text('Import charts (JSON / XML file)')),
               PopupMenuItem(value: 'guide', child: Text('Dasha guide')),
-              PopupMenuItem(value: 'recharge', child: Text('Recharge / validity')),
+              if (kPaywall) const PopupMenuItem(value: 'recharge', child: Text('Recharge / validity')),
               PopupMenuItem(value: 'backup', child: Text('Backup to clipboard')),
               PopupMenuItem(value: 'restore', child: Text('Restore from pasted text')),
             ],

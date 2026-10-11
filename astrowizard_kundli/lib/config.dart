@@ -15,3 +15,7 @@ const String kActivationSecret = String.fromEnvironment('AW_SECRET');
 
 /// Recharge server (WordPress plugin tools/wordpress/astrowizard-app-recharge.php).
 const String kApiBase = 'https://www.astrowizard.co.in/wp-json/astrowizard/v1';
+
+/// Payment wall. The Windows build is made with --dart-define=PAYWALL=off (no
+/// recharge needed); the default (Android) is on.
+const bool kPaywall = String.fromEnvironment('PAYWALL', defaultValue: 'on') != 'off';
