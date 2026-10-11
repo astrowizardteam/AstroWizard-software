@@ -90,8 +90,11 @@ jobs:
           name: astrowizard-kundli-apk
           path: astrowizard_kundli/build/app/outputs/flutter-apk/app-release.apk
 
-  # Windows 10/11 (64-bit) desktop build. The payment wall is switched OFF here.
+  # Windows 10/11 (64-bit) desktop builds: paid (payment wall on) and free (wall off).
   windows:
+    strategy:
+      matrix:
+        edition: [paid, free]
     runs-on: windows-latest
     defaults:
       run:
@@ -130,8 +133,15 @@ jobs:
           dart run flutter_launcher_icons
         continue-on-error: true
 
-      - name: Build Windows (payment wall off)
-        run: flutter build windows --release --dart-define=PAYWALL=off
+      - name: Build Windows (${{ matrix.edition }})
+        env:
+          AW_SECRET: ${{ secrets.AW_SECRET }}
+        run: |
+          if [ "${{ matrix.edition }}" = "free" ]; then
+            flutter build windows --release --dart-define=PAYWALL=off
+          else
+            flutter build windows --release --dart-define=AW_SECRET="$AW_SECRET"
+          fi
 
       # App-local copy of the Visual C++ runtime, so it also starts on PCs without it.
       - name: Add VC++ runtime DLLs
@@ -142,17 +152,17 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: astrowizard-kundli-windows-portable
+          name: astrowizard-kundli-windows-portable-${{ matrix.edition }}
           path: astrowizard_kundli/build/windows/x64/runner/Release
 
       - name: Build installer (single Setup.exe)
         run: |
           choco install innosetup -y --no-progress
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" tools/installer.iss
+          MSYS_NO_PATHCONV=1 "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DOutName=AstroWizardKundaliSetup-${{ matrix.edition }}" tools/installer.iss
         continue-on-error: true
 
       - uses: actions/upload-artifact@v4
         with:
-          name: astrowizard-kundli-windows-installer
-          path: astrowizard_kundli/installer_out/AstroWizardKundaliSetup.exe
+          name: astrowizard-kundli-windows-installer-${{ matrix.edition }}
+          path: astrowizard_kundli/installer_out/AstroWizardKundaliSetup-${{ matrix.edition }}.exe
           if-no-files-found: warn

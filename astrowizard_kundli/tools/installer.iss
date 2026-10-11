@@ -1,5 +1,8 @@
 ; Inno Setup script: one AstroWizardKundaliSetup.exe installer for Windows 10/11 (64-bit).
 ; Built by the GitHub workflow (job "windows"). SourceDir is passed with /DSourceDir=...
+#ifndef OutName
+  #define OutName "AstroWizardKundaliSetup"
+#endif
 #ifndef SourceDir
   #define SourceDir "..\build\windows\x64\runner\Release"
 #endif
@@ -10,7 +13,7 @@ AppVersion=1.0
 AppPublisher=AstroWizard
 DefaultDirName={autopf}\AstroWizard Kundali Software
 DefaultGroupName=AstroWizard Kundali Software
-OutputBaseFilename=AstroWizardKundaliSetup
+OutputBaseFilename={#OutName}
 OutputDir=..\installer_out
 Compression=lzma2
 SolidCompression=yes

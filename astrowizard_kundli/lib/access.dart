@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:android_id/android_id.dart';
 import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -108,8 +110,15 @@ class Access {
   /// the paid validity against it, so access can be restored after clearing data.
   static Future<String> deviceId() async {
     try {
-      final id = await const AndroidId().getId();
-      if (id != null && id.isNotEmpty) return id;
+      if (Platform.isWindows) {
+        // Windows machine GUID: stays the same after clearing app data / reinstalling.
+        final w = await DeviceInfoPlugin().windowsInfo;
+        final id = w.deviceId.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+        if (id.length >= 8) return 'win$id';
+      } else {
+        final id = await const AndroidId().getId();
+        if (id != null && id.isNotEmpty) return id;
+      }
     } catch (_) {}
     final p = await SharedPreferences.getInstance();
     var d = p.getString(_kDev);
