@@ -267,10 +267,35 @@ class _HomeScreenState extends State<HomeScreen> {
       if (n == null) return;
       msg = '$n charts imported';
       await _reload();
-    } on FormatException catch (e) {
-      msg = 'Could not import: ${e.message}';
-    } catch (_) {
-      msg = 'Could not import: not a valid chart file';
+    } on ImportFailure catch (e) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Could not import'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(e.message),
+              if (e.preview.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text('Start of the file:', style: TextStyle(fontWeight: FontWeight.w600)),
+                SelectableText(e.preview, style: const TextStyle(fontSize: 12)),
+              ],
+            ]),
+          ),
+          actions: [
+            if (e.preview.isNotEmpty)
+              TextButton(
+                onPressed: () => Clipboard.setData(ClipboardData(text: e.preview)),
+                child: const Text('Copy'),
+              ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    } catch (e) {
+      msg = 'Could not import: $e';
     }
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
@@ -319,10 +344,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (text == null || text.trim().isEmpty) return;
     String msg;
     try {
-      final n = await ChartStore.importJson(text);
+      final n = await importChartText(text);
       msg = '$n charts restored';
       await _reload();
-    } on FormatException catch (e) {
+    } on ImportFailure catch (e) {
       msg = 'Could not restore: ${e.message}';
     } catch (_) {
       msg = 'Could not restore: invalid backup text';

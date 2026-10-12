@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:astrowizard_kundli/engine/models.dart';
 import 'package:astrowizard_kundli/access.dart';
+import 'package:astrowizard_kundli/transfer.dart';
+import 'package:astrowizard_kundli/xml_io.dart';
 import 'package:astrowizard_kundli/engine/gulika.dart';
 import 'package:astrowizard_kundli/engine/vimshopaka.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -293,5 +295,26 @@ void main() {
 
   test('Server status signature matches the WordPress plugin', () {
     expect(statusSignature('test-secret-123', 'abc123def456', 1900000000), '991d157ab4915b28');
+  });
+
+  test('Chart files: UTF-8 / UTF-16 text and XML round trip', () {
+    const xml = '<?xml version="1.0"?><Charts><Person><Name>Test</Name><Date>14-03-2001</Date>'
+        '<Time>05:27:41</Time><TimeZone>5.5</TimeZone><Latitude>27.1767N</Latitude>'
+        '<Longitude>78.0081E</Longitude><Place>Agra</Place></Person></Charts>';
+    final le = <int>[0xFF, 0xFE, for (final u in xml.codeUnits) ...[u & 255, u >> 8]];
+    final be = <int>[0xFE, 0xFF, for (final u in xml.codeUnits) ...[u >> 8, u & 255]];
+    for (final bytes in [xml.codeUnits, [0xEF, 0xBB, 0xBF, ...xml.codeUnits], le, be]) {
+      final t = decodeChartBytes(bytes);
+      expect(t.contains('<Name>Test</Name>'), isTrue);
+      final c = chartsFromXml(t.substring(t.indexOf('<')));
+      expect(c.length, 1);
+      expect(c.first.birth.wall, DateTime.utc(2001, 3, 14, 5, 27, 41));
+      expect(c.first.birth.latitude, closeTo(27.1767, 1e-9));
+      expect(c.first.birth.tzHours, 5.5);
+    }
+    final out = chartsToXml(chartsFromXml(xml));
+    final back = chartsFromXml(out);
+    expect(back.first.birth.place, 'Agra');
+    expect(back.first.birth.longitude, closeTo(78.0081, 1e-9));
   });
 }
