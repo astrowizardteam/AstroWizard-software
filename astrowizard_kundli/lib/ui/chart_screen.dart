@@ -282,6 +282,7 @@ class _ChartScreenState extends State<ChartScreen> {
         setState(() {
           _here = p;
           _hereName = null;
+          _trFromHere = true; // chart follows the lagna of this place
         });
       }
     } catch (e) {
@@ -330,6 +331,7 @@ class _ChartScreenState extends State<ChartScreen> {
       setState(() {
         _here = (lat: city.lat, lon: city.lon);
         _hereName = city.name;
+        _trFromHere = true;
       });
     }
   }
@@ -382,14 +384,17 @@ class _ChartScreenState extends State<ChartScreen> {
           IconButton(
             icon: const Icon(Icons.close, size: 18),
             tooltip: 'Remove location (no transit ascendant)',
-            onPressed: () => setState(() => _here = null),
+            onPressed: () => setState(() {
+              _here = null;
+              _trFromHere = false;
+            }),
           ),
       ]),
       if (_here != null)
         Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 8, children: [
           FilterChip(
-            label: const Text('Draw from transit lagna'),
+            label: const Text('Lagna of this place'),
             selected: _trFromHere,
             onSelected: (v) => setState(() => _trFromHere = v),
           ),
